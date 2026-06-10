@@ -1,37 +1,49 @@
 # Voice Dictation
 
 Windows push-to-talk dictation. Press `Ctrl+Shift+Space`, talk (English, Spanish, or mixed), press again.
-The transcript types at the cursor AND lands on the clipboard.
+The transcript is copied to the clipboard. Paste anywhere with `Ctrl+V`.
 
-Engine: OpenRouter `openai/whisper-large-v3` (working now). Swap to Groq for lower latency (see below).
+Engine: Groq `whisper-large-v3-turbo` (~1s for a 10s clip). Falls back to OpenRouter if needed.
 
-## Launch
+Autostart: registered as a Windows Scheduled Task (`WhisperWriter`), runs silently at login, no popup.
 
-Double-click `start.bat`, or from PowerShell:
+## Usage
 
-```powershell
-cd whisper-writer
-.\venv\Scripts\activate
-python run.py
+- `Ctrl+Shift+Space` to start recording
+- Talk (pause as long as you want, it does not cut off)
+- `Ctrl+Shift+Space` again to stop and transcribe
+- `Ctrl+V` to paste the result wherever you want
+
+## Config
+
+- API key: `whisper-writer/.env` as `OPENAI_API_KEY`
+- Engine settings: `whisper-writer/src/config.yaml`
+- Hotkey: `activation_key` in `config.yaml` (default `ctrl+shift+space`)
+
+### Swap engine
+
+In `whisper-writer/.env`:
+```
+OPENAI_API_KEY=your_key_here
 ```
 
-## Configuration
+In `whisper-writer/src/config.yaml`:
+```yaml
+model_options:
+  api:
+    model: whisper-large-v3-turbo
+    base_url: https://api.groq.com/openai/v1
+```
 
-Config lives at `whisper-writer/src/config.yaml`. API key is in `whisper-writer/.env` as `OPENAI_API_KEY`.
+For OpenRouter fallback: `base_url: https://openrouter.ai/api/v1`, model: `openai/whisper-large-v3`
+(note: OpenRouter does not support the audio transcription endpoint via the OpenAI SDK).
 
-### Swap to Groq (recommended when you have the key)
+## Manage the autostart task
 
-1. Get a free key at `console.groq.com`.
-2. In `whisper-writer/.env`, replace the value of `OPENAI_API_KEY` with the Groq key.
-3. In `whisper-writer/src/config.yaml`, change:
-   - `api.model` to `whisper-large-v3-turbo`
-   - `api.base_url` to `https://api.groq.com/openai/v1`
-
-## Clipboard patch
-
-`whisper-writer/src/main.py` has a one-line `pyperclip.copy(result)` added to `on_transcription_complete`,
-so the transcript is always on the clipboard even when no text field is focused. Re-apply this if you
-re-clone `whisper-writer/`.
+```powershell
+Start-ScheduledTask -TaskName "WhisperWriter"   # start now
+Stop-Process -Name "pythonw" -ErrorAction SilentlyContinue  # stop
+```
 
 ## Setup from scratch
 
@@ -39,15 +51,25 @@ re-clone `whisper-writer/`.
 git clone https://github.com/savbell/whisper-writer whisper-writer
 cd whisper-writer
 
-# Install av binary first (no MSVC needed)
 py -3.11 -m venv venv
 .\venv\Scripts\pip install av --prefer-binary
 
-# Relax pinned av version in requirements.txt (av==11.0.0 has no Windows wheel)
+# Relax pinned av version (no Windows wheel for av==11.0.0)
 (Get-Content requirements.txt -Raw -Encoding Unicode) -replace 'av==11\.0\.0','av>=11.0.0' |
     Set-Content requirements.txt -Encoding Unicode
 
 .\venv\Scripts\pip install -r requirements.txt
 ```
 
-Then re-create `src/config.yaml` and `.env` from this README.
+Then restore `src/config.yaml` and `.env` (see Config section above).
+
+### Code patches (re-apply after re-clone)
+
+`src/main.py` has two changes vs upstream:
+
+1. `on_transcription_complete`: copies result to clipboard with `pyperclip.copy(result)`, no typewrite.
+2. `initialize_components`: calls `self.key_listener.start()` at the end instead of `self.main_window.show()`,
+   so the app starts silently in the tray.
+
+`src/key_listener.py`: `_on_keyboard_press` / `_on_keyboard_release` in `PynputBackend` skip unknown keys
+instead of falling back to `KeyCode.SPACE` (which caused `Ctrl+Shift` alone to trigger the hotkey).
