@@ -1,0 +1,6 @@
+whisper-writer/
+venv/
+.env
+*.key
+__pycache__/
+*.pyc
