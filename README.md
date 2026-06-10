@@ -1,5 +1,8 @@
 # Voice Dictation
 
+> Based on [WhisperWriter](https://github.com/savbell/whisper-writer) by savbell, licensed under GPL v3.
+> Modifications: clipboard-only output, silent autostart, hotkey fix, EN/ES prompt.
+
 Windows push-to-talk dictation. Press `Ctrl+Shift+Space`, talk (English, Spanish, or mixed), press again.
 The transcript is copied to the clipboard. Paste anywhere with `Ctrl+V`.
 
