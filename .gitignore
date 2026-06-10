@@ -1,4 +1,5 @@
-whisper-writer/
+whisper-writer/venv/
+whisper-writer/.env
 venv/
 .env
 *.key
